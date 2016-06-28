@@ -280,6 +280,31 @@
       return null;
     }
 
+    function containsCheckFnI(a) {
+      if (typeof a === 'string') {
+        return function (b) {
+          return !!a.match(new RegExp(b, 'i'));
+        };
+      } else if (Array.isArray(a)) {
+        return function (b) {
+          for (var item, i = 0, len = a.length; i < len; i++) {
+            item = a[i];
+            if (typeof item === 'string') {
+              if (item.match(new RegExp(b, 'i'))) { return true }
+            } else if (typeof item === 'object' && item !== null) {
+              if (hasOwnProperty.call(item, b)) { return true }
+            }
+          }
+          return false;
+        };
+      } else if (typeof a === 'object' && a !== null) {
+        return function (b) {
+          return hasOwnProperty.call(a, b);
+        };
+      }
+      return null;
+    }
+
     function doQueryOp(val, op) {
       for (var p in op) {
         if (hasOwnProperty.call(op, p)) {
@@ -295,6 +320,15 @@
       // b is the query value
       $eq: function (a, b) {
         return a === b;
+      },
+
+      $eqi: function (a, b) {
+        if (typeof a === 'string') {
+          return !!a.match(new RegExp('^' + b + '$', 'i'));
+        }
+        else {
+          return a === b;
+        }
       },
 
       // abstract/loose equality
@@ -387,6 +421,14 @@
         return false;
       },
 
+      $containsi: function (a, b) {
+        var checkFn = containsCheckFnI(a);
+        if (checkFn !== null) {
+          return (Array.isArray(b)) ? (b.every(checkFn)) : (checkFn(b));
+        }
+        return false;
+      },
+
       $type: function (a, b) {
         var type = typeof a;
         if (type === 'object') {
@@ -445,7 +487,7 @@
     };
 
     // making indexing opt-in... our range function knows how to deal with these ops :
-    var indexedOpsList = ['$eq', '$aeq', '$dteq', '$gt', '$gte', '$lt', '$lte'];
+    var indexedOpsList = ['$eq', '$eqi', '$aeq', '$dteq', '$gt', '$gte', '$lt', '$lte'];
 
     function clone(data, method) {
       var cloneMethod = method || 'parse-stringify',
@@ -1788,6 +1830,7 @@
       // if value falls outside of our range return [0, -1] to designate no results
       switch (op) {
       case '$eq':
+      case '$eqi':
       case '$aeq':
         if (ltHelper(val, minVal, false) || gtHelper(val, maxVal, false)) {
           return [0, -1];
@@ -1860,6 +1903,7 @@
 
       switch (op) {
       case '$eq':
+      case '$eqi':
         if (lval !== val) {
           return [0, -1];
         }
